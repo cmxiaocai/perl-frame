@@ -1,0 +1,114 @@
+2015-07-01 14:17:41 [perl bin/picture_list.pl local]::
+2015-07-01 14:17:52 [perl bin/picture_requestThenSave.pl local]::--START--<save:img_id=>	<exist:img_id=>	<exist:img_id=>	[packageid=111]	[packageid=222]	--END--
+2015-07-01 14:18:39 [perl bin/picture_requestThenSave.pl local]::--START--<save:img_id=>	<exist:img_id=>	<exist:img_id=>	[packageid=111]	[packageid=222]	DEL:111111,222222,333--END--
+2015-07-01 14:20:01 [perl bin/picture_requestThenSave.pl local]::--START--<save:img_id=111111>	<save:img_id=222222>	<save:img_id=333>	[packageid=111]	[packageid=222]	--END--
+2015-07-01 14:20:13 [perl bin/picture_requestThenSave.pl local]::--START--<save:img_id=111111>	<save:img_id=222222>	<save:img_id=333>	[packageid=111]	[packageid=222]	--END--
+2015-07-01 14:20:26 [perl bin/picture_requestThenSave.pl local]::--START--<exist:img_id=111111>	<exist:img_id=222222>	<exist:img_id=333>	[packageid=111]	[packageid=222]	--END--
+2015-07-01 15:40:34 [perl application/demo.pl local]::DEMO
+2015-07-01 15:47:43 [perl application/examples/config.pl local]::
+2015-07-01 15:48:12 [perl application/examples/config.pl local]::
+2015-07-01 15:48:29 [perl application/examples/config.pl local]::
+2015-07-01 15:48:46 [perl application/examples/config.pl local]::
+2015-07-01 15:49:20 [perl application/examples/config.pl local]::$VAR1 = {
+          'product' => {
+                       'URI_GAME_PICTURE' => 'game_picture/json_find',
+                       'API_HOST' => 'http://anxun.baidu.com/'
+                     },
+          'devel' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   },
+          'local' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   }
+        };
+2015-07-01 15:50:09 [perl application/examples/config.pl local]::$VAR1 = {
+          'product' => {
+                       'URI_GAME_PICTURE' => 'game_picture/json_find',
+                       'API_HOST' => 'http://anxun.baidu.com/'
+                     },
+          'devel' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   },
+          'local' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   }
+        };
+$VAR1 = {
+          'URI_GAME_PICTURE' => 'game_picture/json_find',
+          'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+        };
+2015-07-01 15:50:54 [perl application/examples/config.pl local]::$VAR1 = {
+          'product' => {
+                       'URI_GAME_PICTURE' => 'game_picture/json_find',
+                       'API_HOST' => 'http://anxun.baidu.com/'
+                     },
+          'devel' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   },
+          'local' => {
+                     'URI_GAME_PICTURE' => 'game_picture/json_find',
+                     'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+                   }
+        };
+$VAR1 = {
+          'URI_GAME_PICTURE' => 'game_picture/json_find',
+          'API_HOST' => 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/'
+        };
+$VAR1 = 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/';
+2015-07-01 15:53:11 [perl application/examples/config.pl local]::$VAR1 = {
+          'product' => {
+                       'URI_GAME_USER' => 'game_user/findbyjson',
+                       'API_HOST' => 'http://xxx.xxxx.com/'
+                     },
+          'devel' => {
+                     'URI_GAME_USER' => 'game_user/findbyjson',
+                     'API_HOST' => 'http://001.test.dev/'
+                   },
+          'local' => {
+                     'URI_GAME_USER' => 'game_user/findbyjson',
+                     'API_HOST' => 'http://localhost/'
+                   }
+        };
+$VAR1 = {
+          'URI_GAME_USER' => 'game_user/findbyjson',
+          'API_HOST' => 'http://localhost/'
+        };
+$VAR1 = 'http://localhost/';
+2015-07-01 15:54:37 [perl application/examples/config.pl local]::$VAR1 = {
+          'product' => {
+                       'URI_GAME_USER' => 'game_user/findbyjson',
+                       'API_HOST' => 'http://xxx.xxxx.com/'
+                     },
+          'devel' => {
+                     'URI_GAME_USER' => 'game_user/findbyjson',
+                     'API_HOST' => 'http://001.test.dev/'
+                   },
+          'local' => {
+                     'URI_GAME_USER' => 'game_user/findbyjson',
+                     'API_HOST' => 'http://localhost/'
+                   }
+        };
+$VAR1 = {
+          'URI_GAME_USER' => 'game_user/findbyjson',
+          'API_HOST' => 'http://localhost/'
+        };
+$VAR1 = 'http://localhost/';
+2015-07-01 16:00:07 [perl application/examples/json.pl local]::
+2015-07-01 16:13:39 [perl application/examples/json.pl local]::
+2015-07-01 16:14:07 [perl application/examples/json.pl local]::$VAR1 = {
+          'data' => [
+                      {
+                        'uid' => 11
+                      },
+                      {
+                        'uid' => 22
+                      }
+                    ],
+          'code' => 0
+        };
+errors

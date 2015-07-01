@@ -1,0 +1,8 @@
+$CONFIG->{'api_anxun'}->{'local'}->{'API_HOST'} = 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/';
+$CONFIG->{'api_anxun'}->{'local'}->{'URI_GAME_PICTURE'} = 'game_picture/json_find';
+
+$CONFIG->{'api_anxun'}->{'devel'}->{'API_HOST'} = 'http://dbl-wise-tt-newrd08.vm.baidu.com:8886/';
+$CONFIG->{'api_anxun'}->{'devel'}->{'URI_GAME_PICTURE'} = 'game_picture/json_find';
+
+$CONFIG->{'api_anxun'}->{'product'}->{'API_HOST'} = 'http://anxun.baidu.com/';
+$CONFIG->{'api_anxun'}->{'product'}->{'URI_GAME_PICTURE'} = 'game_picture/json_find';

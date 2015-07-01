@@ -1,0 +1,76 @@
+# 图片榜单列表
+#@author linlei_91
+#@since 2015-06-24
+#usage: list.pl file
+#use strict;
+use DBF;
+use JSON;
+use POSIX;
+use Data::Dumper;
+use encoding "utf-8";
+
+require('bin/bootstrap.pl');
+require('conf/mysql_appse.pl'); 
+
+my $pid = 443;
+my $data_file = '/home/work/jiangyoucheng/boarddata/data/' . $pid ;
+my $soar_url = 'ftp://dbl-wise-appdata.dbl01:/home/work/appboard/board_data/client_soarList';
+my $soar_list_file = '/tmp/client_soarList';
+my %package_soar_list;
+my $pos = 1;
+
+# connect mysql
+my $config_ref = $CONFIG->{'mysql_appse'}->{$ENVIRONMENT};
+my $host = $config_ref->{'DBI_HOST'};
+my $port = $config_ref->{'DBI_PORT'};
+my $db   = $config_ref->{'DBI_DB'};
+my $user = $config_ref->{'DBI_USER'};
+my $pass = $config_ref->{'DBI_PASS'};
+$CONN_MYSQL_APPRES = DBF::Connect_Database( $host, $port, $db, $user, $pass);
+
+#下载文件
+system(`wget -q -O $soar_list_file $soar_url `);
+
+open(FILE,$soar_list_file);
+my $i = 0;
+while(<FILE>)
+{
+	chomp;
+	@_ = split("\t",$_);
+	$package_soar_list{$_[2]} = $_[6];
+}
+close FILE;
+
+my $sth = $CONN_MYSQL_APPRES->prepare("SELECT a.fields_value, a.operate_detail  FROM android_low_cover_info a  WHERE a.fields_type='packageid' AND a.operate_type='PICTURE_DEAL' AND a.operate_detail <> ''");
+$sth->execute();
+
+my $jsonCoder = new JSON();
+open(my $fh, '>',$data_file) or die "can not open file $data_file!";
+my %datehash;
+while (my $ref = $sth->fetchrow_hashref()) {
+	my $json = $jsonCoder->decode('{"result":'. $ref->{'operate_detail'}. '}');
+	my $result = $json->{'result'};
+	#@{$result} = sort { $a->{'last_update_time'} <=> $b->{'last_update_time'} } @{$result};
+	my $score  = 0;
+	$score = exists $package_soar_list{$ref->{'fields_value'}} ? $package_soar_list{$ref->{'fields_value'}} : 0;
+	
+	my %package;
+	$package{'packageid'} = $ref->{'fields_value'};
+	$package{'score'} = $score;
+
+	$v = (values $result)[0];
+	$time = strftime("%Y%m%d", localtime($v->{'last_update_time'}));
+	push( @{$datehash{$time}}, (\%package));
+}
+$sth->finish();
+
+foreach my $date (sort keys %datehash) {
+	$val = $datehash{$date};
+	foreach my $v (sort { $a->{'score'} <=> $b->{'score'} } values $val) {
+		my $packageid = $v->{'packageid'};
+
+		print $fh "$pid\t$pos\t$packageid\n";
+		$pos ++;
+	}
+}
+close $fh;

@@ -1,0 +1,17 @@
+$CONFIG->{'mysql_appse'}->{'local'}->{'DBI_HOST'}='172.17.156.14';
+$CONFIG->{'mysql_appse'}->{'local'}->{'DBI_PORT'}='8888';
+$CONFIG->{'mysql_appse'}->{'local'}->{'DBI_DB'}='app_res';
+$CONFIG->{'mysql_appse'}->{'local'}->{'DBI_USER'}='appse';
+$CONFIG->{'mysql_appse'}->{'local'}->{'DBI_PASS'}='appse_fuzhou';
+
+$CONFIG->{'mysql_appse'}->{'devel'}->{'DBI_HOST'}='localhost';
+$CONFIG->{'mysql_appse'}->{'devel'}->{'DBI_PORT'}='3306';
+$CONFIG->{'mysql_appse'}->{'devel'}->{'DBI_DB'}='app_res';
+$CONFIG->{'mysql_appse'}->{'devel'}->{'DBI_USER'}='game';
+$CONFIG->{'mysql_appse'}->{'devel'}->{'DBI_PASS'}='gametest';
+
+$CONFIG->{'mysql_appse'}->{'product'}->{'DBI_HOST'}='172.17.156.14';
+$CONFIG->{'mysql_appse'}->{'product'}->{'DBI_PORT'}='8888';
+$CONFIG->{'mysql_appse'}->{'product'}->{'DBI_DB'}='app_res';
+$CONFIG->{'mysql_appse'}->{'product'}->{'DBI_USER'}='appse';
+$CONFIG->{'mysql_appse'}->{'product'}->{'DBI_PASS'}='appse_fuzhou';

@@ -1,0 +1,579 @@
+#**
+#* @file Util.pm
+#* @author lixiang(lixiang04@baidu.com)
+#* @date 2011/08/20 21:00:00
+#* @brief
+#*
+#**
+
+package Util;
+use strict;
+use Loglib;
+use Encode;
+use Time::Local;
+use POSIX qw(strftime);
+use Digest::MD5  qw/ md5_hex /;
+
+use constant DEFAULT => "NULL";
+
+
+#@in: 1 => 标志文件;
+#@in: 2 => 标志文件内容;
+#@函数功能 => 设置标志位文件;
+sub Set_File_Flag
+{
+    my ($file,$content) = @_;
+    my $function = "Set_File_Flag";
+    
+    my $filecontent = "";
+    $filecontent = $content if (defined($content));
+    if (Execute_Cmd($function,qq(echo $filecontent > $file)) eq 0){
+        Loglib::NOTICE_LOG("[$function] ---> [success]");
+        return 0;
+    }
+    else{
+        Loglib::ERROR_LOG("[$function] ---> [fail]");
+        return -1;
+    }
+}
+
+#@in: 1 => 标志位文件名;
+#@函数功能 => 清除标志位文件;
+sub Clear_File_Flag
+{
+    my ($file) = @_;
+    my $function = "Clear_File_Flag";
+
+    unless (-e $file){
+        Loglib::NOTICE_LOG("[$function] [file : $file] not exist ---> [success]");
+        return 0;
+    }
+
+    if (Execute_Cmd($function,qq(rm $file)) eq 0){
+        Loglib::NOTICE_LOG("[$function] ---> [success]");
+        return 0;
+
+    }
+    else{
+        Loglib::ERROR_LOG("[$function] ---> [fail]");
+        return -1;
+    }
+}
+    
+
+#@in:    1 => 一个字符串;
+#@函数功能 => 算一个字符串的md5
+sub CreatSign
+{
+    my ($str) = @_;
+    $str = $1 if($str =~ /^\s*(\S.*?)\s*$/);
+    my $sign = md5_hex($str);
+    return $sign;
+}
+
+#@in:    1 => 一个字符串;
+#@函数功能 => 将一个字符串哈希成一个整数;
+sub CreatSignInt
+{   
+    my ($str) = @_;
+
+    my $sign = substr(md5_hex($str),8,16);
+    my $id1 = 0;
+    my $id2 = 0;
+    for (my $i =0; $i<8; $i++) { 
+        $id2 *= 16;
+        $id2 += hex(substr($sign, $i, 1));
+    }
+
+    for (my $i =8; $i<length($sign); $i++) { 
+        $id1 *= 16;
+        $id1 += hex(substr($sign, $i, 1));
+    }
+    my $id =($id1+$id2) & 0xffffffff;
+    return $id;
+}
+
+
+#@in:    1 => 邮件标题;
+#@in:    2 => 字符串参数的邮件内容;
+#@in:    3 => 文件参数的邮件内容;
+#@in:    4 => 收邮件的;
+#@函数功能 => 发邮件;
+sub MailTo
+{       
+    my($tit,$cont,$file,$MAIL_TO) = @_;
+    my $body = "";
+    $body = `cat $file` if(-e $file);
+    $cont .= "\n$body";
+    my $dt = `date +"%Y-%m-%d"`;
+    chomp $dt;
+    $cont =~ s/"/\\"/g;
+    my $cmd = "echo \"$cont\" |  mail -s \"$tit-($dt)\" $MAIL_TO";
+    `$cmd`;
+
+    return 0;
+}
+
+#@in:    1 => 配置文件;
+#@inout: 2 => 存储配置的哈希引用;
+#@in:    3 => 输出文件的句柄;
+#@函数功能 => 加载配置文件;
+sub Load_Conf
+{
+    my ($conffile,$conf_ref,$log) = @_;
+    unless (open(FH,"<$conffile"))
+    {
+        Loglib::FATAL_LOG("open conf file fail:$conffile",$log);
+        return -1;
+    }
+    my $itemnum = 0;
+    while(<FH>)
+    {
+        chomp;
+        next if(/^\s*#/);
+        next if ($_ eq "");
+        if(/^\s*(\S+?)\s*:\s*(.+)\s*$/)
+        {
+            $conf_ref->{$1} = $2;
+            Loglib::NOTICE_LOG("read conf No:$itemnum :[$1]--->[$2]",$log);
+            $itemnum++;
+        }else
+        {
+            Loglib::FATAL_LOG("illegal conf line,must fix! line:[$_]",$log);
+            return -2;
+        }
+    }
+    close(FH);
+
+    return 0;
+}
+
+#@in:    1 => 要加载的配置文件;
+#@inout: 2 => 存储配置的哈希引用;
+#@in:    3 => key的下标值，默认为0;
+#@in:    4 => value的下标值，默认为1;
+#@函数功能 => 加载一个简单的一维的key => value形式的参数配置到一个哈希中;3,4参数必须同时存在或同时不存在;
+sub Load_Pair_Conf
+{
+    my ($conf_file,$conf_hash,$key_index,$value_index) = @_;
+    my $function = "Load_Pair_Conf";
+
+    unless (open(RFP,$conf_file)){
+        Loglib::ERROR_LOG("[$function] load [file : $conf_file] ---> [fail]");
+        return -1;
+    }
+    
+    my $key = 0;
+    my $value = 1;
+    if (defined($key_index) and defined($value_index)){#如果参数指定了key和value的下标;
+        $key = $key_index;
+        $value = $value_index;
+    }
+    while(<RFP>){
+        chomp;
+        my @arr = split /\t/;
+        unless (defined($arr[$key]) and defined($arr[$value])){
+            Loglib::ERROR_LOG("[$function] read [file : $conf_file] ---> [fail]");
+            close(RFP);
+            return -2;
+        }
+        $conf_hash->{$arr[$key]} = $arr[$value];
+        print "read conf [key : $arr[$key]] [value : $arr[$value]]\n";
+    }
+    close(RFP);
+    
+    Loglib::NOTICE_LOG("[$function] read [file : $conf_file] ---> [success]");
+    return 0;
+}
+
+
+#@in:    1 => 出榜单时需要的磁盘空间;
+#函数功能 => 检查磁盘剩余空间
+sub Disk_Check
+{
+    my ($need_size) = @_;
+
+    my @dir=`df -k .`;
+    my $diskfree=(split(/\s+/,$dir[$#dir]))[3]*1024;
+    if ($need_size > $diskfree) {
+        Loglib::ERROR_LOG("free disk space is not enough! $diskfree");
+        $diskfree /= (1024*1024);
+        my $need = $need_size / (1024*1024);
+        return -1;
+    }
+    else{ 
+        Loglib::DEBUG_LOG("now free disk space: $diskfree");
+        return 0;
+    }
+}
+
+#@in: 1 => 函数名
+#@in: 2 => 数据库连接句柄
+#@in: 3 => sql语句
+#@in: 4 => sql成功是否输出日志
+#函数功能 => 缩短代码...
+sub Execute_Sql
+{
+    my ($function,$dbh,$sql,$flag) = @_;
+
+    my $stat = $dbh->prepare($sql);
+    unless($stat){
+        Loglib::WARN_LOG("[$function] execute [$sql] ---> [fail : prepare]\n");
+        return -1;
+    }
+    unless($stat->execute()){
+        Loglib::WARN_LOG("[$function] execute [$sql] ---> [fail : execute]\n");
+        return -1;
+    }
+
+    Loglib::NOTICE_LOG("[$function] execute [$sql] ---> [success]\n") unless($flag eq 0);
+    return $stat;
+}
+
+
+
+#@in:    1 => 要创建的目录;
+#函数功能 => 创建目录
+sub Set_Dir
+{
+    my ($dir) = @_; 
+    unless(-e $dir){
+        `mkdir -p $dir`;
+        unless ($? eq 0){ 
+            Loglib::WARN_LOG("create filepath $dir fail");
+            return -1; 
+        }
+    }
+    #Loglib::DEBUG_LOG("dir $dir has been existed");
+    return 0;
+}
+
+#@in:    1 => 调用的函数名
+#@in:    2 => 要执行的命令
+#@inout: 3 => 执行的命令返回的结果(可选);
+#函数功能 => 执行一条命令,并返回结果;
+sub Execute_Cmd
+{
+    my ($function,$cmd,$con) = @_; 
+
+    $$con = `$cmd`;
+    if($? eq 0){ 
+        Loglib::NOTICE_LOG("[$function] execute [$cmd] ---> [success]");
+        chomp $$con;
+        return 0;
+    }   
+    else{
+        Loglib::WARN_LOG("[$function] execute [$cmd] ---> [fail]");
+        return -1;
+    }
+}
+
+
+#@in:    1 => 要解析的日志文件;
+#@in:    2 => 邮件内容;
+#@in:    3 => 日志类型,ERROR,WARN等;
+#函数功能 => 解析日志文件;
+sub Analysis_Log
+{
+    my ($logfile,$mail_cont,$logtype) = @_;
+    my $function = "Analysis_Log";
+    
+    my %log_info = ();
+    my $con;
+    
+    my $cmd = qq(cat $logfile |grep "$logtype");
+    Util::Execute_Cmd($function,$cmd,\$con);
+    my @arr = split /\n/,$con;
+    foreach my $error(@arr){
+        if ($error =~ /^.*$logtype\s*(\[.*?\]).*\[\s*(.*?)\s*\]\s*$/){
+            $log_info{$1}->{$2}++;
+        }       
+    }
+    
+    $$mail_cont .= "\n------------------ $logtype info -----------------\n";
+    foreach my $fun(keys %log_info){
+        my $funhash = $log_info{$fun};
+        $$mail_cont .= "$fun --->";
+        foreach my $cause(keys %$funhash){
+            $$mail_cont .= " ([$cause -> $funhash->{$cause}])";
+        }       
+        $$mail_cont .= "\n";
+    }
+    
+    return 0;
+}
+
+
+#@in:    1 => 目标文件;
+#@in:    2 => 下载后储存文件;
+#@in:    3 => wget 参数;
+#@函数功能 => 下载文件;
+sub Down_File
+{
+    my ($srcfile,$destfile,$parameter) = @_;
+    my $function = "Down_File";        
+
+    $srcfile =~ s/\(/\\\(/g;
+    $srcfile =~ s/\)/\\\)/g;
+    my $cmd = qq(wget $parameter $srcfile -O $destfile);
+    if (Execute_Cmd($function,$cmd) eq -1){
+        Loglib::WARN_LOG("[$function] down [$srcfile] to [$destfile] ---> [fail]");
+        return -1;
+    }
+    else{
+        #Loglib::DEBUG_LOG("[$function] down [$srcfile] to [$destfile] ---> [success]");
+        return 0;
+    }
+}
+
+#@in:    1 => 哈希;
+#@in:    2 => 数组;
+#@in:    3 => 分隔符;
+#@函数功能 => 按照一个数组中的元素顺序，输出它们在某一哈希中做为key所对应的value,以某一分隔符相连;
+sub Hash_Array_To_Str
+{
+    my ($hash,$array,$sep) = @_;
+
+    my $str = "";
+    foreach my $field(@$array){
+        $str .= $hash->{$field}.$sep;
+    }
+    $str =~ s/$sep$//;
+    
+    return $str;
+}
+
+
+#@in: 1 => 版本号;
+#@函数功能 => 处理版本号;
+sub Deal_Version
+{
+    my ($version) = @_;
+    my $function = "Get_Version_Info";
+        
+    my $append ="";
+    $append .= " beta" if ($version =~ /beta/i);
+    my $versionname = $1 if ($version =~ /([\d\.]+)/);
+    $versionname =~ s/^\.//; 
+    $versionname =~ s/\.$//;
+
+    Loglib::NOTICE_LOG("[$function] [versionname : $version] ---> [versionname : $versionname]");
+    ($versionname eq "")? (return DEFAULT) : (return $versionname.$append);
+
+}
+
+#@in:    1 => 一个字符串;
+#@in:    2 => 一个数组;
+#@inout: 3 => 一个哈希的引用;
+#@in:    4 => 一个分隔符,嗯，字符串中的分隔符;
+#@函数功能 => 将一个输入的字符串按分隔符分割后,以数组中的元素为key,字符串相应的字段为value，存在哈希中;
+sub Str_To_Hash
+{
+    my ($str,$array,$hash,$sep) = @_;
+    my $function = "Str_To_Hash";    
+
+    my @value = split /$sep/,$str;
+    my $len2 = scalar(@value);
+    my $len1 = scalar(@$array);
+    unless ($len1 eq $len2){
+        Loglib::WARN_LOG("[$function] [array : $len1,value : $len2] is not equal ---> [fail]");
+        foreach my $tmp(@value){
+            print $tmp."\n";
+        }
+        return -1;
+    }
+    for (my $i = 0;$i < $len1;$i++){
+        $hash->{$array->[$i]} = $value[$i];
+    }
+    
+    return 0;
+}
+
+#@in: 1 => 要备份的文件(夹)的字符串;如 /home/work/1;/home/work/guagua/test
+#@in: 2 => 备份文件的目录;
+#@函数功能 => 备份指定的文件(夹)到指定的目录下;
+sub Back_Up_Files
+{
+    my ($bakfiles,$bakpath) = @_;
+    my $function = "Back_Up_Files";
+
+    #不需要备份文件;
+    unless (defined($bakfiles) or $bakfiles eq ""){
+        Loglib::NOTICE_LOG("SENDMAIL : [$function] not need to backup files ---> [end]");
+        return 0;
+    }
+
+    #获取备份时间;
+    my $timestamp;
+    unless (Execute_Cmd($function,qq(date +"%Y%m%d"),\$timestamp) eq 0){
+        Loglib::ERROR_LOG("[$function] ---> [fail]");
+        return -1;
+    }
+    
+    #设置备份目录;
+#    my ($date,$h_m_s) = split / /,$timestamp;
+#    my $final_bakpath = "$bakpath/$date/$h_m_s";
+    my $final_bakpath = "$bakpath/$timestamp";
+    Util::Set_Dir($final_bakpath);
+    
+    #备份文件;
+    my $success = 0;
+    my $fail = 0;
+    my @bakfile_array = split /;/,$bakfiles;
+    foreach my $bakfile(@bakfile_array){
+        unless (Util::Execute_Cmd($function,qq(cp -r $bakfile $final_bakpath)) eq 0){
+            Loglib::WARN_LOG("[$function] backup [file : $bakfile] ---> [fail]");
+            $fail++;
+        }
+        else{
+            $success++;
+        }
+    }
+
+    Loglib::NOTICE_LOG("SENDMAIL : [$function] ---> [success : $success] [fail : $fail]");
+    return 0;
+}
+
+
+
+#@in: 1 => 要写入的文件;
+#@in: 2 => 要写入的信息;
+#@函数功能 => 向一个会被多个进程共享的文件写入内容;
+sub Write_Share_File
+{
+    my ($file,$info) = @_;
+    my $function = "Write_Share_File";
+
+    unless (open(WFP,">>$file")){
+        Loglib::WARN_LOG("[$function] write [info : $info] to [file : $file] ---> [fail]");
+        return -1;
+    }
+    flock(WFP,2);
+    print WFP $info,"\n";
+    close(WFP);
+
+    Loglib::NOTICE_LOG("[$function] write [info : $info] to [file : $file] ---> [success]");
+    return 0;
+}
+
+#@in: 1 => 父进程id;
+#@函数功能 => 根据父进程id查找其所衍生的子进程id,最多衍生层数不超过5层;
+sub Process_Parent_Find_Childs
+{
+    my ($parent_id) = @_;
+    my $function = "Process_Parent_Find_Child";
+   
+       my $loop = 0;#为防止死循环,需要对查找层数进行计数;
+    my @pid_list = ($parent_id);
+    my @pid_array = ($parent_id);
+    while(defined($pid_list[0])){
+        my $pid = shift @pid_list;
+        my $pid_con;
+        unless (Execute_Cmd($function,qq(ps -ef|grep $pid),\$pid_con) eq 0){
+            Loglib::WARN_LOG("[$function] ---> [fail]");
+            return -1;
+        }
+        my @array = split /\n/,$pid_con;
+        foreach my $con(@array){
+            if ($con =~ /^\S+\s+(\d+)\s+$pid.+$/){
+                push @pid_list,$1;
+                push @pid_array,$1;
+            }
+        }
+        $loop++;
+        last if ($loop > 5);
+    }
+    return \@pid_array;
+}
+
+
+#@in: 1 => 时间参数;如:2011-11-11 11:11:11
+#@函数功能 => 将上述时间值转化为以秒为单位的值;
+sub Ymdhms_To_Seconds
+{
+    my ($ymdhms) = @_;
+    my $function = "Ymdhms_To_Seconds";
+    
+    my $seconds;
+    if (Execute_Cmd($function,qq(date "-d $ymdhms" +%s),\$seconds) eq 0){
+        Loglib::NOTICE_LOG("[$function] [$ymdhms] change to [$seconds]");
+        return $seconds;
+    }
+    else{
+        return -1;
+    }
+}
+
+#@in: 1 => 日志备份目录;
+#@in: 2 => 日志保存天数;
+#@函数功能 => 删除过期日志,其实只删除特定一天的日志，偷懒下，下次再升级;
+sub Delete_Overtime_Log
+{
+    my ($bakpath,$overdays) = @_;
+    my $function = "Delete_Overtime_Log";
+
+    my $delete_path;
+    Util::Execute_Cmd($function,qq(date "-d $overdays days ago" +"%Y-%m-%d"),\$delete_path);
+
+    if (Util::Execute_Cmd($function,qq(rm -rf $bakpath/$delete_path)) eq 0){
+        Loglib::NOTICE_LOG("[$function] delete [log : $bakpath/$delete_path] ---> [success]");
+        return 0;
+    }
+    else{
+        Loglib::WARN_LOG("[$function] delete [log : $bakpath/$delete_path] ---> [fail]");
+        return -1;
+    }
+}
+
+#@in: 1 => 文件路径;
+#@函数功能 => 算文件的md5;
+sub Get_File_Md5
+{
+    my ($file) = @_;
+    my $function = "Get_File_Md5";
+    
+    my $md5 = `md5sum $file`;
+    unless ($? eq 0){
+        Loglib::WARN_LOG("[$function] [file : $file] get md5 ---> [fail]");
+        return -1;
+    }
+    $md5 =~ s/^(\w+)\s+.+(\n)*$/\1/;
+
+    return $md5;
+}
+
+#@in: 1 => 输入字符串;
+#@函数功能 => 对一个字符串在组织成json格式前处理特殊字符;
+sub JsonEncode
+{
+    my ($str) = @_;
+    $str = decode("gbk", $str);
+    $str =~ s/\\/\\\\/g;
+    $str =~ s/[\r\n\t ]+/ /g;
+    $str =~ s/"/\\"/g;
+    return encode("gbk", $str);
+}
+
+#@in: 1 => 映射字段的字符串
+#@in: 2 => 存储字段映射的哈希
+#@函数功能 => 获取字段的映射关系
+sub Get_Fields_Map
+{
+    my ($map_fields,$map) = @_;
+    my $function = "Get_Fields_Map";
+
+    my @map_array = split /,/,$map_fields;
+    foreach (@map_array){
+        if (/^\[(.+?)\s*:\s*(.+?)\]$/){
+            $map->{$1} = $2;
+        }
+        else{
+            Loglib::ERROR_LOG("[$function] [$_] ---> [fail]");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+1;

@@ -1,0 +1,11 @@
+[local]
+API_HOST = http://dbl-wise-tt-newrd08.vm.baidu.com:8886/
+URI_GAME_PICTURE = game_picture/json_find
+
+[devel]
+API_HOST = http://dbl-wise-tt-newrd08.vm.baidu.com:8886/
+URI_GAME_PICTURE = game_picture/json_find
+
+[product]
+API_HOST = http://anxun.baidu.com/
+URI_GAME_PICTURE = game_picture/json_find

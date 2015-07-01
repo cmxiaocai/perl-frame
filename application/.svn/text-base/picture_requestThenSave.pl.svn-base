@@ -1,0 +1,134 @@
+use DBF;
+use JSON;
+use POSIX;
+#use LWP::Simple;
+#use Config::INI::Reader;
+use Data::Dumper;
+use encoding "utf-8";
+
+require('bin/bootstrap.pl');
+require('conf/mysql_appse.pl');
+require('conf/api_anxun.pl');
+
+# request api
+#$config_ref = Config::INI::Reader->read_file('config/api_anxun.ini');
+$config_ref = $CONFIG->{'api_anxun'};
+$api_anxun  = $config_ref->{$ENVIRONMENT}->{'API_HOST'};
+$api_url    = $api_anxun.$config_ref->{$ENVIRONMENT}->{'URI_GAME_PICTURE'};
+$json_str   = qx{curl --silent $api_url};
+if( !$json_str ){
+	print 'request failure';
+	exit;
+}
+
+# decode json
+$jsonCoder = new JSON();  
+$json = $jsonCoder->decode($json_str);#print Dumper($json);
+$code = $json->{'__code'};
+if( $code ne 'ok' ){
+	print '__code errors >>', $json_str;
+	exit;
+}
+$result = $json->{'result'};
+
+print "--START--";
+my $config_ref = $CONFIG->{'mysql_appse'}->{$ENVIRONMENT};
+my $host = $config_ref->{'DBI_HOST'};
+my $port = $config_ref->{'DBI_PORT'};
+my $db   = $config_ref->{'DBI_DB'};
+my $user = $config_ref->{'DBI_USER'};
+my $pass = $config_ref->{'DBI_PASS'};
+$CONN_MYSQL_APPRES = DBF::Connect_Database( $host, $port, $db, $user, $pass);
+
+# format parsing
+my %savehash;
+my @packageids;
+my @img_ids;
+foreach $item (@{$result}){
+	my %temphash;
+	foreach $img (@{$item->{'img_list'}}){
+		$temphash{$img->{'last_update_time'}}{'picture_img_id'}     = $img->{'img_id'};
+		$temphash{$img->{'last_update_time'}}{'picture_pos'}        = $img->{'pos'};
+		$temphash{$img->{'last_update_time'}}{'picture_tags'}       = join(',', @{$img->{'tags'}} );
+		$temphash{$img->{'last_update_time'}}{'picture_updatetime'} = $img->{'last_update_time'};
+		push( @img_ids, $img->{'img_id'} );
+	}
+
+	#sort
+	my @array=();
+	foreach my $key (sort {$a<=>$b} keys %temphash){
+		push(@array, %temphash->{$key});
+	}
+
+	my $packageid = $item->{'packageid'};
+	push(@packageids, $packageid);
+	$savehash{$packageid}{'packageid'} = $item->{'packageid'};
+	$savehash{$packageid}{'img_list'}  = \@array;
+}
+
+# save game_picture
+%savedata = %savehash;
+while( ($key, $item) = each(%savehash) ){
+	my $packageid = $item->{'packageid'};
+	my $img_list  = $item->{'img_list'};
+	
+	my $count = 1;
+	my $max =  scalar(@$img_list);
+	while( $count <= $max ){
+		$img = $item->{'img_list'}[$count-1];
+		my $img_id = $img->{'picture_img_id'};
+		my $tag    = $img->{'picture_tags'};
+		my $time   = $img->{'picture_updatetime'};
+		$count++;
+
+		$sth = $CONN_MYSQL_APPRES->prepare("SELECT id,img_id FROM android_game_picture WHERE img_id='$img_id'");
+		$sth->execute();
+		@info = $sth->fetchrow_array();
+		my $lastid;
+		if(@info){
+			$lastid = $info[0];
+    			print "<edit:img_id=$img_id>", "\t";
+    			$CONN_MYSQL_APPRES->do("UPDATE android_game_picture SET `tags`='$tag',`last_update_time`='$time' WHERE img_id='$img_id'");
+		}else{
+    			print "<save:img_id=$img_id>", "\t";
+    			$CONN_MYSQL_APPRES->do("INSERT INTO android_game_picture(`img_id`,`packageid`,`tags`,`last_update_time`) VALUES('$img_id','$packageid','$tag','$time')");
+			$lastid = $CONN_MYSQL_APPRES->last_insert_id(undef, undef, "android_game_picture", undef);
+		}
+		$savedata{$key}{'img_list'}[$count-2]{'picture_id'}=$lastid;
+	}
+	
+}
+
+# save android_low_cover_info
+while( ($key, $item) = each(%savedata) ){
+	$packageid = $item->{'packageid'};
+	$img_list  = $jsonCoder->encode( $item->{'img_list'} );
+
+	print "[packageid=$packageid]", "\t";
+	$CONN_MYSQL_APPRES->do("INSERT INTO android_low_cover_info(`fields_type`,`fields_value`,`operate_type`,`operate_detail`,`updatetime`,`flag`,`packageid`) VALUES('packageid','$packageid','PICTURE_DEAL','$img_list','$LOCALTIME','0','$packageid')ON DUPLICATE KEY UPDATE `fields_type`='packageid',`fields_value`='$packageid',`operate_type`='PICTURE_DEAL',`operate_detail`='$img_list',`updatetime`='$LOCALTIME',`flag`='0',`packageid`='$packageid'");
+	
+}
+
+# remove imges
+@use_img_ids    = ();
+$packageids_str = join(',', @packageids );
+$sth = $CONN_MYSQL_APPRES->prepare("SELECT packageid,img_id FROM `android_game_picture` WHERE `packageid` IN($packageids_str)");
+$sth->execute();
+while(my @item = $sth->fetchrow_array()){
+	push(@use_img_ids, $item[1]);
+}
+
+foreach my $item (@img_ids) {
+	if(grep {$_ eq $item} @use_img_ids){
+		$item='';
+	}
+}
+my @diff_ids = grep {$_ ne ''} @img_ids;
+my $del_ids  = join(',', @diff_ids);
+if( $del_ids  ){
+	print 'DEL:',$del_ids;
+	$CONN_MYSQL_APPRES->do("DELETE FROM `android_game_picture` WHERE `img_id` IN($del_ids)");
+}
+
+print '--END--';
+

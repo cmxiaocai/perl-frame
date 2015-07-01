@@ -1,0 +1,7 @@
+
+$ENVIRONMENT = shift @ARGV;
+#if( defined $ENVIRONMENT ){
+#   $ENVIRONMENT='product';
+#}
+
+$LOCALTIME = strftime("%Y-%m-%d %H:%M:%S",localtime());

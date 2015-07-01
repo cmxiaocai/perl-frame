@@ -1,0 +1,20 @@
+[local]
+DBI_HOST = 172.17.156.14
+DBI_PORT = 8888
+DBI_DB   = app_res
+DBI_USER = appse
+DBI_PASS = appse_fuzhou
+
+[devel]
+DBI_HOST = localhost
+DBI_PORT = 3306
+DBI_DB   = app_res
+DBI_USER = game
+DBI_PASS = gametest
+
+[product]
+DBI_HOST = 172.17.156.14
+DBI_PORT = 8888
+DBI_DB   = app_res
+DBI_USER = appse
+DBI_PASS = appse_fuzhou

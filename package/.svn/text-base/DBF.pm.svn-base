@@ -1,0 +1,132 @@
+package DBF;
+use strict;
+use Loglib;
+use DBI;
+
+my $retry = 3;#数据库重连次数;
+
+#@in: 1 => 数据库地址;
+#@in: 2 => 数据库端口;
+#@in: 3 => 数据库名称;
+#@in: 4 => 数据库用户名;
+#@in: 5 => 数据库密码;
+#函数功能 => 返回一个gbk编码的数据库连接句柄;
+sub Connect_Database
+{
+    my ($dbhost,$dbport,$dbname,$dbuser,$dbpsw) = @_;
+
+    my $j = 1;
+    while($j <= $retry){
+        my $dbh=DBI->connect("dbi:mysql:$dbname:$dbhost:$dbport",$dbuser,$dbpsw);
+        unless (defined($dbh)){
+            Loglib::ERROR_LOG("can't connect to db : $DBI::errstr ---> [fail : $j]\n");
+            $j++;
+            next;
+        }
+
+        my @configarray = ("character_set_client","character_set_connection","character_set_database","character_set_results","character_set_server");
+        my $stat;
+        my $flag = 0;
+        for (my $i=0; $i < scalar(@configarray); $i++) {
+            my $config = "set $configarray[$i]=gbk";
+            $stat = $dbh->prepare($config) || Loglib::ERROR_LOG("cann't prepare: ".$config."\n");
+            unless ($stat->execute()){
+                Loglib::ERROR_LOG("can't execute sql : $config ---> [fail : $j]");
+                $flag = 1;
+                last;
+            }
+        }
+        if ($flag == 1){
+            $j++;
+            next;
+        }
+
+        $stat->finish();
+        return $dbh;
+    }
+}
+
+#@in: 1 => 数据库句柄;
+#@in: 2 => 要操作的表;
+#@in: 3 => insert操作需要的字段;
+#@in: 4 => 存储表字段信息的哈希;
+#@函数功能 => 将一个哈希中的信息转成sql语句插入数据库表;
+sub Insert_Table
+{
+    my ($dbh,$table,$fields,$hash) = @_;
+    my $function = "Insert_Table";
+
+    my $field_str = "";
+    my $value_str = "";
+    my @field_array = split /,/,$fields;
+    foreach my $field(@field_array){
+        next unless (exists $hash->{$field});
+        $field_str .= qq($field,);
+        my $value = $dbh->quote($hash->{$field});
+        $value_str .= qq($value,);
+    }
+    $field_str =~ s/,$//;
+    $value_str =~ s/,$//;
+
+    my $sql = qq(insert into $table ($field_str) values($value_str));
+    (Util::Execute_Sql($function,$dbh,$sql) eq -1)? (return -1) : (return 0);
+}
+
+#@in: 1 => 数据库句柄;
+#@in: 2 => 要操作的表;
+#@in: 3 => update操作需要更新的字段;
+#@in: 4 => update操作的条件语句;
+#@in: 5 => 存储表字段信息的哈希;
+#@函数功能 => 将一个哈希中的信息转成sql语句更新数据库
+sub Update_Table
+{
+    my ($dbh,$table,$fields,$condition,$hash) = @_;
+    my $function = "Update_Table";
+
+    my $str = "";
+    my @field_array = split /,/,$fields;
+    foreach my $field(@field_array){
+        next unless (exists $hash->{$field});
+        my $value = $dbh->quote($hash->{$field});
+        $str .= qq($field=$value,);
+    }
+    $str =~ s/,$//; 
+
+    my $sql = qq(update $table set $str where $condition);
+    (Util::Execute_Sql($function,$dbh,$sql) eq -1)? (return -1) : (return 0);
+}
+
+#@in: 1 => 数据库句柄;
+#@in: 2 => 存储一条记录的哈希的引用;
+#@in: 3 => 要操作的表名;
+#@in: 4 => 要插入的字段;
+#@in: 5 => 要更新的字段;
+#@函数功能 => 一个灰常NB的sql语句，会对表中的主键或者unique key进行判断(优先判断主键).无则插入，有则更新;
+#PS : NB有风险,使用需谨慎.使用前建议先试明白;另外对于插入和更新字段的差别也要注意;
+sub Insert_or_Update_Table
+{
+    my ($dbh,$hash,$table,$insert_fields,$update_fields) = @_;
+    my $function = "Insert_or_Update_Table";
+
+    my @insert_array = split /,/,$insert_fields;
+    my @update_array = split /,/,$update_fields;
+    my $sql = "insert into $table set ";
+
+    my %tmphash = ();
+    foreach my $field(@insert_array){
+        $hash->{$field} = "" if (not exists $hash->{$field} or $hash->{$field} eq "");
+        $tmphash{$field} = $dbh->quote($hash->{$field});
+        $sql .= "$field=$tmphash{$field},";
+    }
+    $sql =~ s/,$/ on duplicate key update /;
+
+    foreach my $field(@update_array){
+        $hash->{$field} = "" if (not exists $hash->{$field} or $hash->{$field} eq "");
+        $tmphash{$field} = $dbh->quote($hash->{$field}) unless (exists $tmphash{$field});
+        $sql .= "$field=$tmphash{$field},";
+    }
+    $sql =~ s/,$//;
+    (Util::Execute_Sql($function,$dbh,$sql) eq -1)? (return -1):(return 0);
+}
+
+1;
